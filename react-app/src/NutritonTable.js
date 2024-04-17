@@ -79,6 +79,8 @@ function NutritonTable({ data, localData, setLocalData }) {
 
   const localKeys = localData && Object.keys(localData);
 
+  const localStorageVar = localStorage.getItem("ingredients");
+
   const flattedArr = useMemo(() => {
     return localKeys?.map((key) => {
       const currentMultiplier = localData[key].find(
@@ -135,7 +137,9 @@ function NutritonTable({ data, localData, setLocalData }) {
         }),
       ];
     });
-  }, [localKeys, localData]);
+  }, [localKeys, localData, localStorageVar]);
+
+  useEffect(() => {}, [flattedArr]);
 
   const labelTotals = useMemo(() => {
     return flattedArr
@@ -166,13 +170,13 @@ function NutritonTable({ data, localData, setLocalData }) {
 
     const multiplier = Number(value) / findIngredient.originalValue;
 
+    console.log({ ingredient, value, storedItems, findIngredient, multiplier });
+
     findIngredient.multiplier = multiplier;
-    findIngredient.value = value;
+    findIngredient.quantity = +value;
 
     // setLocalData(storedItems);
     // storedItems[ingredientText] = newData;
-
-    console.log({ storedItems, ingredient, value, findIngredient });
 
     localStorage.setItem("ingredients", JSON.stringify(storedItems));
 
@@ -184,6 +188,8 @@ function NutritonTable({ data, localData, setLocalData }) {
   const handleDelete = (item) => {
     console.log({ item });
   };
+
+  console.log({ flattedArr });
 
   return (
     <>
