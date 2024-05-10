@@ -33,9 +33,11 @@ const useStyles = makeStyles((theme) =>
   })
 );
 
-function NutritonTable({ data, localData, setLocalData }) {
+function NutritonTable({ data }) {
   const classes = useStyles();
-  // const [multiplierObj, setMultiplierObj] = useState({});
+
+  console.log({ localStorage });
+  const localData = JSON.parse(localStorage.getItem("ingredients"));
 
   const newData = useMemo(() => {
     const arr = [];
@@ -71,7 +73,7 @@ function NutritonTable({ data, localData, setLocalData }) {
 
     const ingredientText = data?.ingredients?.[0]?.parsed?.[0]?.food;
 
-    setLocalData(storedItems);
+    // setLocalData(storedItems);
     storedItems[ingredientText] = newData;
 
     localStorage.setItem("ingredients", JSON.stringify(storedItems));
@@ -81,6 +83,8 @@ function NutritonTable({ data, localData, setLocalData }) {
 
   const localStorageVar = localStorage.getItem("ingredients");
 
+  console.log({ localStorageVar });
+
   const flattedArr = useMemo(() => {
     return localKeys?.map((key) => {
       const currentMultiplier = localData[key].find(
@@ -88,46 +92,7 @@ function NutritonTable({ data, localData, setLocalData }) {
       ).multiplier;
 
       return [
-        // {
-        //   label: "Ingredient",
-        //   quantity: key,
-        // },
         ...localData[key]?.map(({ label, quantity, multiplier }) => {
-          // if (multiplierObj[key]) {
-          //   return {
-          //     label,
-          //     quantity: isFinite(quantity)
-          //       ? label !== "Total Weight"
-          //         ? quantity * multiplierObj[key].multiplier
-          //         : Number(multiplierObj[key].value)
-          //       : quantity,
-          //   };
-          // }
-
-          // console.log({ label, quantity, multiplier });
-          // if (label === "Total Weight" && !multiplierObj[key]) {
-          //   // const storedItems = JSON.parse(localStorage.getItem("ingredients")) ?? {};
-
-          //   // const ingredientText = data?.ingredients?.[0]?.parsed?.[0]?.food;
-
-          //   // setLocalData(storedItems);
-          //   // storedItems[ingredientText] = newData;
-
-          //   // localStorage.setItem("ingredients", JSON.stringify(storedItems));
-
-          //   const newObj = { ...multiplierObj };
-
-          //   const addObj = {
-          //     multiplier: 1,
-          //     value: quantity,
-          //     originalValue: quantity,
-          //   };
-
-          //   newObj[key] = addObj;
-
-          //   setMultiplierObj(newObj);
-          // }
-
           return {
             label,
             quantity: isFinite(quantity)
@@ -137,9 +102,7 @@ function NutritonTable({ data, localData, setLocalData }) {
         }),
       ];
     });
-  }, [localKeys, localData, localStorageVar]);
-
-  useEffect(() => {}, [flattedArr]);
+  }, [localKeys, localData]);
 
   const labelTotals = useMemo(() => {
     return flattedArr
@@ -148,7 +111,10 @@ function NutritonTable({ data, localData, setLocalData }) {
         if (!totals[label]) {
           totals[label] = 0;
         }
-        totals[label] += quantity;
+        if (typeof quantity === "number") {
+          totals[label] += quantity;
+        }
+
         return totals;
       }, {});
   }, [flattedArr]);
@@ -156,31 +122,26 @@ function NutritonTable({ data, localData, setLocalData }) {
   const quantityChangeHandler = (e, ingredient, prevValue) => {
     const value = e.target.value;
 
-    // const newObj = { ...multiplierObj };
-
-    // newObj[ingredient] = { ...newObj[ingredient], multiplier, value };
-
     const storedItems = JSON.parse(localStorage.getItem("ingredients")) ?? {};
 
-    // const ingredientText = data?.ingredients?.[0]?.parsed?.[0]?.food;
+    const updatedItems = JSON.parse(JSON.stringify(storedItems));
 
-    const findIngredient = storedItems[ingredient].find(
+    console.log({ storedItems });
+
+    const findIngredient = updatedItems[ingredient].find(
       (i) => i.label === "Total Weight"
     );
 
     const multiplier = Number(value) / findIngredient.originalValue;
 
-    console.log({ ingredient, value, storedItems, findIngredient, multiplier });
-
     findIngredient.multiplier = multiplier;
-    findIngredient.quantity = +value;
+    findIngredient.value = +value;
 
-    // setLocalData(storedItems);
-    // storedItems[ingredientText] = newData;
+    localStorage.setItem("ingredients", JSON.stringify(updatedItems));
 
-    localStorage.setItem("ingredients", JSON.stringify(storedItems));
-
-    // setMultiplierObj(newObj);
+    console.log({
+      updatedItems,
+    });
   };
 
   console.log({ labelTotals, flattedArr });
@@ -189,12 +150,10 @@ function NutritonTable({ data, localData, setLocalData }) {
     console.log({ item });
   };
 
-  console.log({ flattedArr });
-
   return (
     <>
       <TableContainer component={Paper} className={classes.container}>
-        <Table sx={{ minWidth: 300 }} aria-label='simple table'>
+        <Table sx={{ minWidth: 300 }} aria-label="simple table">
           <TableHead>
             <TableRow>
               {newData?.map(({ label, quantity }, index) => {
@@ -212,7 +171,8 @@ function NutritonTable({ data, localData, setLocalData }) {
                 newData.map(({ label, quantity }, index) => (
                   <TableCell
                     key={`${index}-${quantity}`}
-                    className={classes.dataColumn}>
+                    className={classes.dataColumn}
+                  >
                     {isFinite(quantity) ? quantity?.toFixed(2) : quantity}
                   </TableCell>
                 ))}
@@ -222,7 +182,7 @@ function NutritonTable({ data, localData, setLocalData }) {
       </TableContainer>
       <Button onClick={handleClick}>Add Item</Button>
       <TableContainer className={classes.container}>
-        <Table sx={{ minWidth: 650 }} aria-label='simple table'>
+        <Table sx={{ minWidth: 650 }} aria-label="simple table">
           <TableHead>
             <TableRow>
               {flattedArr?.[0]?.map(({ label, quantity }, index) => {
@@ -241,9 +201,9 @@ function NutritonTable({ data, localData, setLocalData }) {
                 {item.map(({ quantity, label }, index) => {
                   return label === "Total Weight" ? (
                     <TextField
-                      id='outlined-basic'
-                      variant='outlined'
-                      type='number'
+                      id="outlined-basic"
+                      variant="outlined"
+                      type="number"
                       value={quantity}
                       onChange={(e) =>
                         quantityChangeHandler(e, item[0].quantity, quantity)
