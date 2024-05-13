@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -6,10 +6,9 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Paper from "@mui/material/Paper";
-import { TextField } from "@mui/material";
+import { TextField, Button } from "@mui/material";
 
 import { createStyles, makeStyles } from "@mui/styles";
-import { Button } from "@mui/material";
 
 const useStyles = makeStyles((theme) =>
   createStyles({
@@ -34,11 +33,11 @@ const useStyles = makeStyles((theme) =>
 );
 
 function NutritonTable({ data }) {
+  const [localData, setLocalData] = useState(
+    JSON.parse(localStorage.getItem("ingredients"))
+  );
+
   const classes = useStyles();
-
-  console.log({ localStorage });
-  const localData = JSON.parse(localStorage.getItem("ingredients"));
-
   const newData = useMemo(() => {
     const arr = [];
     if (!data) {
@@ -73,36 +72,43 @@ function NutritonTable({ data }) {
 
     const ingredientText = data?.ingredients?.[0]?.parsed?.[0]?.food;
 
-    // setLocalData(storedItems);
     storedItems[ingredientText] = newData;
 
     localStorage.setItem("ingredients", JSON.stringify(storedItems));
+    setLocalData(storedItems);
   };
 
-  const localKeys = localData && Object.keys(localData);
-
-  const localStorageVar = localStorage.getItem("ingredients");
-
-  console.log({ localStorageVar });
-
   const flattedArr = useMemo(() => {
+    const localKeys = localData && Object.keys(localData);
+
     return localKeys?.map((key) => {
       const currentMultiplier = localData[key].find(
         (k) => k.label === "Total Weight"
-      ).multiplier;
+      )?.multiplier;
+
+      console.log({ currentMultiplier, localData, localKeys });
 
       return [
-        ...localData[key]?.map(({ label, quantity, multiplier }) => {
+        ...localData[key]?.map(({ label, quantity, value, multiplier }) => {
+          if (label === "Energy") {
+            quantity = quantity * 10;
+          }
+
           return {
             label,
-            quantity: isFinite(quantity)
-              ? quantity * currentMultiplier
-              : quantity,
+            quantity:
+              isFinite(quantity) && label !== "Total Weight"
+                ? quantity + quantity * currentMultiplier
+                : label === "Total Weight" && value
+                ? value
+                : quantity,
           };
         }),
       ];
     });
-  }, [localKeys, localData]);
+  }, [JSON.stringify(localData)]);
+
+  console.log({ flattedArr });
 
   const labelTotals = useMemo(() => {
     return flattedArr
@@ -120,34 +126,44 @@ function NutritonTable({ data }) {
   }, [flattedArr]);
 
   const quantityChangeHandler = (e, ingredient, prevValue) => {
-    const value = e.target.value;
+    const value = +e.target.value;
+    const currentFocus = e.target === document.activeElement;
 
-    const storedItems = JSON.parse(localStorage.getItem("ingredients")) ?? {};
+    if (value < 0) {
+      return;
+    }
+
+    const storedItems = localData ?? {};
 
     const updatedItems = JSON.parse(JSON.stringify(storedItems));
-
-    console.log({ storedItems });
 
     const findIngredient = updatedItems[ingredient].find(
       (i) => i.label === "Total Weight"
     );
 
-    const multiplier = Number(value) / findIngredient.originalValue;
+    const percentageChange =
+      (value - findIngredient.originalValue) / findIngredient.originalValue;
 
-    findIngredient.multiplier = multiplier;
-    findIngredient.value = +value;
+    findIngredient.multiplier = percentageChange;
+    findIngredient.value = value;
 
     localStorage.setItem("ingredients", JSON.stringify(updatedItems));
+    setLocalData(updatedItems);
 
-    console.log({
-      updatedItems,
-    });
+    if (currentFocus) {
+      e.target.focus();
+    }
   };
 
-  console.log({ labelTotals, flattedArr });
-
   const handleDelete = (item) => {
-    console.log({ item });
+    console.log({ item, localData });
+
+    const filteredItemKey = item[0].quantity;
+
+    const { [filteredItemKey]: deletedItem, ...updatedData } = localData;
+
+    localStorage.setItem("ingredients", JSON.stringify(updatedData));
+    setLocalData(updatedData);
   };
 
   return (
@@ -187,12 +203,12 @@ function NutritonTable({ data }) {
             <TableRow>
               {flattedArr?.[0]?.map(({ label, quantity }, index) => {
                 return (
-                  <TableCell key={`header-${label}-${index}`}>
+                  <TableCell key={`footer-${label}-${index}`}>
                     {label}
                   </TableCell>
                 );
               })}
-              <TableCell>Delete</TableCell>
+              <TableCell key={`footer-delete}`}>Delete</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -203,15 +219,12 @@ function NutritonTable({ data }) {
                     <TextField
                       id="outlined-basic"
                       variant="outlined"
-                      type="number"
+                      type="text"
                       value={quantity}
                       onChange={(e) =>
                         quantityChangeHandler(e, item[0].quantity, quantity)
                       }
-                      inputProps={{
-                        min: 1,
-                        max: 10000,
-                      }}
+                      key={`${index}-${quantity}-${label}`}
                     />
                   ) : (
                     <TableCell key={`header-${quantity}-${index}`}>
